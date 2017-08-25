@@ -9,38 +9,36 @@
 	<style type="text/css">
 		@page { size: 8.27in 11.69in; margin-left: 1.18in; margin-right: 0.59in; margin-top: 0.79in; margin-bottom: 0.79in }
 		p { margin-bottom: 0.1in; line-height: 120% }
-		h1 { margin-bottom: 0.08in; direction: ltr; font-variant: normal; color: #00000a; line-height: 100%; text-align: left; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none }
+		h1 { margin-bottom: 0.08in; direction: ltr; font-variant: normal; color: #00000a; line-height: 150%; text-align: left; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none }
 		h1.western { font-family: "Liberation Sans", serif; font-size: 14pt; font-style: normal; font-weight: normal }
 		h1.cjk { font-family: "Liberation Sans"; font-size: 14pt; font-style: normal; font-weight: normal }
 		h1.ctl { font-family: "Liberation Sans"; font-size: 14pt; font-weight: normal }
-		h2 { margin-top: 0in; margin-bottom: 0in; direction: ltr; font-variant: normal; color: #00000a; line-height: 100%; text-align: left; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto }
+		h2 { margin-top: 0in; margin-bottom: 0in; direction: ltr; font-variant: normal; color: #00000a; line-height: 150%; text-align: left; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto }
 		h2.western { font-family: "Times New Roman", serif; font-style: normal }
 		h2.cjk { font-family: "Times New Roman"; font-style: normal }
 		h2.ctl { font-family: "Times New Roman"; font-weight: normal }
-		h3 { margin-top: 0.14in; margin-bottom: 0in; direction: ltr; font-variant: normal; color: #5b9bd5; line-height: 100%; text-align: left; page-break-inside: avoid; orphans: 2; widows: 2; text-decoration: none }
+		h3 { margin-top: 0.14in; margin-bottom: 0in; direction: ltr; font-variant: normal; color: #5b9bd5; line-height: 150%; text-align: left; page-break-inside: avoid; orphans: 2; widows: 2; text-decoration: none }
 		h3.western { font-family: "Calibri", serif; font-size: 12pt; font-style: normal }
 		h3.cjk { font-family: "Calibri"; font-size: 12pt; font-style: normal }
 		h3.ctl { font-family: "Calibri"; font-size: 12pt; font-weight: normal }
 	</style>
 </head>
 <body lang="en-US" bgcolor="#ffffff" dir="ltr">
-<h1 class="western" style="font-variant: normal; font-style: normal; line-height: 100%">
-<font color="#000000"><font face="Arial, serif"><font size="6" style="font-size: 26pt">Using
-Pseudo-random number repeatably in a fine-grain multithreaded
-simulation</font></font></font></h1>
-<p style="margin-bottom: 0in; line-height: 100%"><font face="Arial, serif"><font size="4" style="font-size: 16pt">Dmitry
+<h1 class="western" style="font-variant: normal; font-style: normal; line-height: 150%">
+<font color="#000000"><font face="Arial, serif"><font size="6" style="font-size: 22pt">Using Pseudo-random number repeatably in a fine-grain multithreaded simulation</font></font></font></h1>
+<p style="margin-bottom: 0in; line-height: 150%"><font face="Arial, serif"><font size="4" style="font-size: 16pt">Dmitry
 Savin, VNIIA PhD student, sd57@protonmail.ch</font></font></p>
 <h2 class="western"><font face="Arial, serif"><font size="4" style="font-size: 16pt">Problem
 description</font></font></h2>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Particle
+<p align="justify" style="margin-bottom: 0in; line-height: 150%"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Particle
 transport Monte Carlo simulations are a key tool for High Energy
 Physics experiments, including the LHC experiments at CERN. All Monte
 Carlo (MC) simulations depend vitally on Pseudo-Random Number
 Generators (PRNGs) used to sample many distributions.</font></font></p>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%"><br/>
+<p align="justify" style="margin-bottom: 0in; line-height: 150%"><br/>
 
 </p>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Each
+<p align="justify" style="margin-bottom: 0in; line-height: 150%"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Each
 LHC experiments generates 5-10 Billion sampled physics events a year
 using around 10^18 sampled values from PRNGs. PRNGs take 1-5% of CPU
 time. PRNGs used must possess very large periods, fast execution, the
@@ -48,10 +46,10 @@ ability to create a large number of streams, and very good
 correlation properties between streams and sampled values. It must be
 possible to reproduce a simulated event any time, for reexamination
 or debugging.</font></font></p>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%"><br/>
+<p align="justify" style="margin-bottom: 0in; line-height: 150%"><br/>
 
 </p>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%"><font face="Arial, serif"><font size="4" style="font-size: 14pt">The
+<p align="justify" style="margin-bottom: 0in; line-height: 150%"><font face="Arial, serif"><font size="4" style="font-size: 14pt">The
 transition from event-level parallelism in Geant4 to dynamical
 multithreading in GeantV requires associating the random generator
 states not with the threads but with the tracks, which are shuffled
@@ -80,273 +78,273 @@ pedigrees introduced in Cilk Plus, which are first tested in Geant4.</font></fon
 	streams. It also enables the spawning of new streams while ensuring
 	their independence.</span></span></font></font></font></span></h2>
 </ol>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 <br/>
 
 </p>
 <ol start="2">
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 	<span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">Counter-based
 	</span></font></font></span></font></span><span style="font-variant: normal"><font color="#000000"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">Pseudo
 	Random Number Generators [3]</span></font></font></span></font></span></p>
 </ol>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 <span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><i>Motivation:</i></font></font></span></font></span><span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">
  Most pseudorandom number generators (PRNGs) scale</span></font></font></span></font></span></p>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 <font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">poorly
 to massively parallel high-performance computation because they are
 designed as sequentially dependent state transformations.
 Independent, keyed transformations of counters produce a large
 alternative class of PRNGs that require little memory for state and
 can be easily forwarded.</font></font></font></p>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 <span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><i>Description:</i></font></font></span></font></span><span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">
  Counter-based PRNGs consist of an increment for the transition
 function transition function and a hash function for the output
 function. Using a well-established cryptography function like AES or
 Threefish ensures good quality of the pseudo random numbers stream,
 while simpler functions like Philox give better performance.</span></font></font></span></font></span></p>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%"><br/>
+<p align="justify" style="margin-bottom: 0in; line-height: 150%"><br/>
 
 </p>
 <ol start="3">
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 	<span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">Pedigree-based
 	</span></font></font></span></font></span><span style="font-variant: normal"><font color="#000000"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">Pseudo
 	Random Number Generators [1]</span></font></font></span></font></span></p>
 </ol>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 <span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><i>Motivation:</i></font></font></span></font></span><span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">
  In an application with a very big number of dynamic threads that use
 only a few random numbers SPRNG may be inefficient. Random number
 generation based on the spawn pedigree allows to overcome this
 hurdle.</span></font></font></span></font></span></p>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 <span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><i>Description:
 </i></font></font></span></font></span><span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">Pedigrees
 store the deterministic state independent of order of operations that
 represents the spawn history. This state can be used for a
 counter-based generator to produce independent random number streams.</span></font></font></span></font></span></p>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 <br/>
 
 </p>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 <br/>
 
 </p>
-<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-left: 0.5in; margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 <br/>
 
 </p>
 <h2 class="western"><font face="Arial, serif"><font size="4" style="font-size: 16pt">Timeline</font></font></h2>
-<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 100%">
+<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 150%">
 <font color="#434343"><font face="Arial, serif"><font size="4" style="font-size: 14pt">April
 20 – May 30 (Before the official coding time):</font></font></font></h3>
 <ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 	<span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">Familiarize
 	myself with CLHEP random generators, SPRNG librar</span></font></font></span></font></span><font face="Arial, serif"><font size="4" style="font-size: 14pt">y,
 	DotMix</font></font><span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">
 	from CilkPlus</span></font></font></span></font></span><font face="Arial, serif"><font size="4" style="font-size: 14pt">
 	and geant4 track manipulation.</font></font></p>
 </ul>
-<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 100%">
+<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 150%">
 <font color="#434343"><font face="Arial, serif"><font size="4" style="font-size: 14pt">May
 30 – June 26 (Official coding period starts):</font></font></font></h3>
 <ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 	<span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">Implement
 	a invocation tree </span></font></font></span></font></span><font face="Arial, serif"><font size="4" style="font-size: 14pt">like</font></font><span style="font-variant: normal"><font color="#00000a"><span style="text-decoration: none"><font face="Arial, serif"><font size="4" style="font-size: 14pt"><span style="font-style: normal">
 	described in [1]</span></font></font></span></font></span><font face="Arial, serif"><font size="4" style="font-size: 14pt">:</font></font></p>
 	<ul>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">each
 		node holds</font></font></p>
 		<ul>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">an
 			integer value E</font></font></p>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">a
 			'hash' value   &quot;H&quot;</font></font></p>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">a
 			unique pointer to an RNG state</font></font></p>
 		</ul>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">Each
 		node generates up to N child nodes, using its 'energy' state E and
 		its RNG (state)</font></font></p>
 		<ul>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">E_i
 			= floor( s * v * E ) // FIXME compresses E towards 0</font></font></p>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">where
 			s = constant double (parameter) damping factor &lt; 1/N</font></font></p>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">v
 			= [0,1) variate obtained from the RNG</font></font></p>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">the
 			RNG state of the child node is a deterministic function of the
 			current state </font></font>
 			</p>
 		</ul>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">Each
 		node generates the hash value for its daughter node 'i'</font></font></p>
 		<ul>
 			<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 			<font face="Arial, serif"><font size="4" style="font-size: 14pt">H_i
 			= HashFunc( H, i )</font></font></p>
 		</ul>
 	</ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; page-break-after: auto">
 	<font face="Arial, serif"><font size="4" style="font-size: 14pt">Demonstrate
 	the independence of the tree traversing order.</font></font></p>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Provide
 	the interface for hash calculation based on the rank of a track in
 	the invocation tree by different generators</font></font></font></p>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Prepare
 	report</font></font></font></p>
 </ul>
-<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 100%">
+<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 150%">
 <font color="#434343"><font face="Arial, serif"><font size="4" style="font-size: 14pt">June
 26 – July 30:</font></font></font></h3>
 <ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Discuss
 	results with mentor</font></font></font></p>
 </ul>
-<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 100%">
+<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 150%">
 <font color="#434343"><font face="Arial, serif"><font size="4" style="font-size: 14pt">June
 30 – July 24:</font></font></font></h3>
-<p style="margin-bottom: 0in; line-height: 100%">       <font face="Arial, serif"><font size="4" style="font-size: 14pt">Associate
+<p style="margin-bottom: 0in; line-height: 150%">       <font face="Arial, serif"><font size="4" style="font-size: 14pt">Associate
 additional PRNG information with track in a geant4 simulation:</font></font></p>
 <ul>
 	<ul>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">in
 		user actions (optional)</font></font></p>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">in
 		the toolkit </font></font>
 		</p>
 	</ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 	<font face="Arial, serif"><font size="4" style="font-size: 14pt">Implement
 	backends:</font></font></p>
 	<ul>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">reproducing
 		the current behavior for testing purposes</font></font></p>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">based
 		on pedigrees (as the period milestone)</font></font></p>
 	</ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%; text-decoration: none">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%; text-decoration: none">
 	</p>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Prepare
 	report</font></font></font></p>
 </ul>
-<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 100%">
+<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 150%">
 <font color="#434343"><font face="Arial, serif"><font size="4" style="font-size: 14pt">July
 24 – July 28:</font></font></font></h3>
 <ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Discuss
 	results with mentor</font></font></font></p>
 </ul>
-<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 100%">
+<h3 class="western" align="justify" style="margin-top: 0.22in; margin-bottom: 0.06in; font-weight: normal; line-height: 150%">
 <font color="#434343"><font face="Arial, serif"><font size="4" style="font-size: 14pt">July
 28 – August 21:</font></font></font></h3>
 <ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 	<font face="Arial, serif"><font size="4" style="font-size: 14pt">Alongside
 	the generators based on pedigrees add:</font></font></p>
 	<ul>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">counter-based
 		[3]</font></font></p>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">SPRNG
 		[2] (optional)</font></font></p>
 	</ul>
 </ul>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%"> 
+<p align="justify" style="margin-bottom: 0in; line-height: 150%"> 
 <font face="Arial, serif"><font size="4" style="font-size: 14pt">Write
 and run tests to assess the suitability of each generator for geant4:</font></font></p>
 <ul>
 	<ul>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">check
 		the physical results</font></font></p>
 		<li/>
-<p align="justify" style="margin-bottom: 0in; line-height: 100%">
+<p align="justify" style="margin-bottom: 0in; line-height: 150%">
 		<font face="Arial, serif"><font size="4" style="font-size: 14pt">check
 		the performance overhead</font></font></p>
 	</ul>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Provide
 	documentation</font></font></font></p>
 	<li/>
-<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="justify" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="4" style="font-size: 14pt">Final
 	report</font></font></font></p>
 </ul>
 <h2 class="western"><font face="Arial, serif">References</font></h2>
 <ol>
 	<li/>
-<p align="left" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="left" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="3" style="font-size: 12pt">Deterministic
 	parallel random-number generation for dynamic-multithreading
 	platforms, Charles E. Leiserson et al.</font></font></font></p>
 	<li/>
-<p align="left" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="left" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="3" style="font-size: 12pt">M.
 	Mascagni and A. Srinivasan (2000), &quot;Algorithm 806: SPRNG: A
 	Scalable Library for Pseudorandom Number Generation,&quot; ACM
 	Transactions on Mathematical Software, 26: 436-461.</font></font></font></p>
 	<li/>
-<p align="left" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 100%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
+<p align="left" style="margin-bottom: 0in; font-variant: normal; font-style: normal; line-height: 150%; page-break-inside: auto; orphans: 2; widows: 2; text-decoration: none; page-break-after: auto">
 	<font color="#00000a"><font face="Arial, serif"><font size="3" style="font-size: 12pt">J.
 	K. Salmon, M. A. Moraes, R. O. Dror, and D. E. Shaw, “Parallel
 	Random Numbers: As Easy as 1, 2, 3” in Proceedings of 2011
