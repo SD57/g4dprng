@@ -1,0 +1,1199 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"  
+  "http://www.w3.org/TR/html4/loose.dtd">  
+<html > 
+<head><title>Using Pseudo-Random Numbers Repeatably in a Fine-Grain Multithreaded
+Simulation</title> 
+<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"> 
+<meta name="generator" content="TeX4ht (http://www.tug.org/tex4ht/)"> 
+<meta name="originator" content="TeX4ht (http://www.tug.org/tex4ht/)"> 
+<!-- html --> 
+<meta name="src" content="gsocPreprint.tex"> 
+<link rel="stylesheet" type="text/css" href="gsocPreprint.css"> 
+</head><body 
+>
+   <div class="maketitle">
+                                                                          
+
+                                                                          
+                                                                          
+
+                                                                          
+
+<h2 class="titleHead">Using Pseudo-Random Numbers Repeatably
+in a Fine-Grain Multithreaded Simulation</h2>
+<div class="author" ><span 
+class="cmr-12x-x-120">Dmitry Savin</span></div><br />
+<div class="date" ><span 
+class="cmr-12x-x-120">August 27, 2017</span></div>
+   </div>
+<div class="center" 
+>
+<!--l. 42--><p class="noindent" >
+<!--l. 42--><p class="noindent" ><span 
+class="cmbx-10x-x-109">Abstract</span></div>
+      <!--l. 43--><p class="indent" >    <span 
+class="cmr-10x-x-109">Because of the transition from event-level parallelism in Geant4</span>
+      <span 
+class="cmr-10x-x-109">to   dynamical   multithreading   in   GeantV   the   order   in   which</span>
+      <span 
+class="cmr-10x-x-109">tracks  are  processed  becomes  non-deterministic.  Thus  to  maintain</span>
+      <span 
+class="cmr-10x-x-109">reproducibility one needs to associate the random generator state with</span>
+      <span 
+class="cmr-10x-x-109">the track itself and the worker thread currently processing the track.</span>
+      <span 
+class="cmr-10x-x-109">To be reproducible from the beginning of the event, this state can</span>
+      <span 
+class="cmr-10x-x-109">only depend on the pedigree of the track. Calculation of the hashed</span>
+      <span 
+class="cmr-10x-x-109">pedigree of a track using the hashed pedigree of the parent track makes</span>
+      <span 
+class="cmr-10x-x-109">the hashing algorithm a Merkle-Damg</span><span 
+class="cmr-10x-x-109">ård</span><span 
+class="cmr-10x-x-109">&#x00A0;construct with well-studied</span>
+      <span 
+class="cmr-10x-x-109">properties.</span>
+      <!--l. 49--><p class="indent" >     <span 
+class="cmr-10x-x-109">We implement this construction using a 64-bit hash and standard</span>
+      <span 
+class="cmr-10x-x-109">hash with boost</span><span 
+class="cmr-10x-x-109">_combine as the compression function operating on</span>
+      <span 
+class="cmr-10x-x-109">the number of the track among siblings as the input message blocks.</span>
+      <span 
+class="cmr-10x-x-109">We use the hashed pedigree as the seed for a CLHEP random number</span>
+      <span 
+class="cmr-10x-x-109">engine  at  the  beginning  of  processing  of  each  track  in  a  Geant4</span>
+      <span 
+class="cmr-10x-x-109">simulation. We show the reproducibility of the results under different</span>
+      <span 
+class="cmr-10x-x-109">track stacking order and their agreement with the results with the</span>
+                                                                          
+
+                                                                          
+      <span 
+class="cmr-10x-x-109">default random number generation. We show that the performance</span>
+      <span 
+class="cmr-10x-x-109">overhead  is  negligible  for  most  of  the  random  number  generators</span>
+      <span 
+class="cmr-10x-x-109">except for those that have a complex internal state.</span>
+      <!--l. 54--><p class="indent" >
+                                                                          
+
+                                                                          
+         <h3 class="likesectionHead"><a 
+ id="x1-1000"></a><span 
+class="cmr-10x-x-109">Contents</span></h3>
+         <div class="tableofcontents">
+         <span class="sectionToc" ><span 
+class="cmr-10x-x-109">1 </span><a 
+href="#x1-20001" id="QQ2-1-2"><span 
+class="cmr-10x-x-109">Introduction</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">1.1 </span><a 
+href="#x1-30001.1" id="QQ2-1-3"><span 
+class="cmr-10x-x-109">Fine-grained parallelism and multi-threading</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">1.2 </span><a 
+href="#x1-40001.2" id="QQ2-1-4"><span 
+class="cmr-10x-x-109">Pedigrees</span></a></span>
+      <br />     <span class="sectionToc" ><span 
+class="cmr-10x-x-109">2 </span><a 
+href="#x1-50002" id="QQ2-1-5"><span 
+class="cmr-10x-x-109">Geant4-based prototype</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">2.1 </span><a 
+href="#x1-60002.1" id="QQ2-1-7"><span 
+class="cmr-10x-x-109">Hash calculation</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">2.2 </span><a 
+href="#x1-70002.2" id="QQ2-1-8"><span 
+class="cmr-10x-x-109">Counter-based Pseudo-Random Number Generators</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">2.3 </span><a 
+href="#x1-80002.3" id="QQ2-1-9"><span 
+class="cmr-10x-x-109">Testing</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsubsectionToc" ><span 
+class="cmr-10x-x-109">2.3.1 </span><a 
+href="#x1-90002.3.1" id="QQ2-1-10"><span 
+class="cmr-10x-x-109">Reproducibility</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsubsectionToc" ><span 
+class="cmr-10x-x-109">2.3.2 </span><a 
+href="#x1-100002.3.2" id="QQ2-1-11"><span 
+class="cmr-10x-x-109">Physical results</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsubsectionToc" ><span 
+class="cmr-10x-x-109">2.3.3 </span><a 
+href="#x1-110002.3.3" id="QQ2-1-13"><span 
+class="cmr-10x-x-109">Performance</span></a></span>
+      <br />     <span class="sectionToc" ><span 
+class="cmr-10x-x-109">3 </span><a 
+href="#x1-120003" id="QQ2-1-15"><span 
+class="cmr-10x-x-109">Conclusion</span></a></span>
+      <br />     <span class="sectionToc" ><span 
+class="cmr-10x-x-109">4 </span><a 
+href="#x1-130004" id="QQ2-1-16"><span 
+class="cmr-10x-x-109">Acknowledgements</span></a></span>
+      <br />     <span class="sectionToc" ><span 
+class="cmr-10x-x-109">A </span><a 
+href="#x1-15000A" id="QQ2-1-18"><span 
+class="cmr-10x-x-109">Test macros</span></a></span>
+      <br />     <span class="sectionToc" ><span 
+class="cmr-10x-x-109">B </span><a 
+href="#x1-16000B" id="QQ2-1-19"><span 
+class="cmr-10x-x-109">Test results</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">B.1 </span><a 
+href="#x1-17000B.1" id="QQ2-1-20"><span 
+class="cmr-10x-x-109">Reproducibility</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">B.2 </span><a 
+href="#x1-18000B.2" id="QQ2-1-21"><span 
+class="cmr-10x-x-109">Physical results</span></a></span>
+      <br />     <span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="subsectionToc" ><span 
+class="cmr-10x-x-109">B.3 </span><a 
+href="#x1-19000B.3" id="QQ2-1-22"><span 
+class="cmr-10x-x-109">Performance</span></a></span>
+         </div>
+                                                                          
+
+                                                                          
+         <h3 class="sectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">1   </span></span> <a 
+ id="x1-20001"></a><span 
+class="cmr-10x-x-109">Introduction</span></h3>
+      <!--l. 67--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">1.1   </span></span> <a 
+ id="x1-30001.1"></a><span 
+class="cmr-10x-x-109">Fine-grained parallelism and multi-threading</span></h4>
+      <!--l. 68--><p class="noindent" ><span 
+class="cmr-10x-x-109">GeantV</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="cite"><span 
+class="cmr-10x-x-109">[</span><a 
+href="#X1742-6596-523-1-012004"><span 
+class="cmr-10x-x-109">1</span></a><span 
+class="cmr-10x-x-109">]</span></span> <span 
+class="cmr-10x-x-109">is a project aimed at increasing the performance of HEP</span>
+      <span 
+class="cmr-10x-x-109">simulations. It is achieved by utilizing massive parallelism of modern</span>
+      <span 
+class="cmr-10x-x-109">hardware and accelerators, such as GPGPUs and Intel Xeon Phi</span>
+      <span 
+class="cmr-10x-x-109">coprocessors. While different threads may operate independently, to make</span>
+      <span 
+class="cmr-10x-x-109">use of vectorization within thread one must have data layout suitable for</span>
+      <span 
+class="cmr-10x-x-109">SIMD (Single Instruction Multiple Data) operations. Thus the tracks with</span>
+      <span 
+class="cmr-10x-x-109">similar properties (particle type, energy, enclosing volume) must</span>
+      <span 
+class="cmr-10x-x-109">be regrouped into &#8221;baskets&#8221;. Then the baskets are processed by</span>
+      <span 
+class="cmr-10x-x-109">worker threads, which readiness depends on running conditions and</span>
+      <span 
+class="cmr-10x-x-109">cannot be deterministic. So the tracks in one event or even parts of</span>
+      <span 
+class="cmr-10x-x-109">the same track are processed by different threads. Thus to assure</span>
+      <span 
+class="cmr-10x-x-109">reproducibility the pseudo-random engine state must be associated</span>
+      <span 
+class="cmr-10x-x-109">with the track itself; and state of the secondary track has to be a</span>
+      <span 
+class="cmr-10x-x-109">deterministic function of the parent track. This is similar to the</span>
+      <span 
+class="cmr-10x-x-109">mechanism of pedigrees</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="cite"><span 
+class="cmr-10x-x-109">[</span><a 
+href="#XLeiserson:2012:DPR:2145816.2145841"><span 
+class="cmr-10x-x-109">3</span></a><span 
+class="cmr-10x-x-109">,</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><a 
+href="#XLeiserson:2012:DPR:2370036.2145841"><span 
+class="cmr-10x-x-109">4</span></a><span 
+class="cmr-10x-x-109">]</span></span> <span 
+class="cmr-10x-x-109">for repeatable parallel random-number</span>
+      <span 
+class="cmr-10x-x-109">generators proposed for Intel Cilk platform, which gave the idea for this</span>
+      <span 
+class="cmr-10x-x-109">work.</span>
+      <!--l. 78--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">1.2   </span></span> <a 
+ id="x1-40001.2"></a><span 
+class="cmr-10x-x-109">Pedigrees</span></h4>
+      <!--l. 79--><p class="noindent" ><span 
+class="cmr-10x-x-109">Pedigrees are deterministic labels for the executed instructions in a</span>
+      <span 
+class="cmr-10x-x-109">dthreaded program execution that partition the instructions into valid</span>
+      <span 
+class="cmr-10x-x-109">strands in such way, that</span>
+     <ul class="itemize1">
+     <li class="itemize"><span 
+class="cmr-10x-x-109">each strand includes instructions with the same pedigree,</span>
+     </li>
+     <li class="itemize"><span 
+class="cmr-10x-x-109">the  pedigree  of  any  instruction  does  not  depend  on  how  the</span>
+     <span 
+class="cmr-10x-x-109">program is scheduled on multiple processors.</span></li></ul>
+  <!--l. 84--><p class="noindent" ><span 
+class="cmr-10x-x-109">These requirements guarantee that pedigrees deterministically identify strands</span>
+      <span 
+class="cmr-10x-x-109">irrespective of scheduling. A random number can be generated by hashing</span>
+      <span 
+class="cmr-10x-x-109">the pedigree, which can be used to initialize a substream of the random</span>
+      <span 
+class="cmr-10x-x-109">number generator. The pedigree can be represented as a sequence of the</span>
+      <span 
+class="cmr-10x-x-109">instruction rank followed by the ranks (number of other daughter</span>
+      <span 
+class="cmr-10x-x-109">instruction generated earlier) of its ancestors.</span>
+                                                                          
+
+                                                                          
+      <!--l. 88--><p class="indent" >     <span 
+class="cmr-10x-x-109">In Geant case is translates into the rank of a track equal to the number</span>
+      <span 
+class="cmr-10x-x-109">of secondary tracks generated by the parent before it. We implement</span>
+      <span 
+class="cmr-10x-x-109">pedigree calculation in Geant4 as a prototype to be further ported to</span>
+      <span 
+class="cmr-10x-x-109">GeantV.</span>
+      <!--l. 93--><p class="noindent" >
+         <h3 class="sectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">2   </span></span> <a 
+ id="x1-50002"></a><span 
+class="cmr-10x-x-109">Geant4-based prototype</span></h3>
+      <!--l. 94--><p class="noindent" ><hr class="figure"><div class="figure" 
+><a 
+ id="x1-50011"></a><img 
+src="gsocPreprint0x.png" alt="PICT" >
+<br />  <div class="caption" 
+><span class="id">Figure&#x00A0;1:  </span><span  
+class="content">Pedigree  hash  calculation  and  usage  in  the  Geant4-based
+prototype.</span></div><!--tex4ht:label?: x1-50011 -->
+      <!--l. 97--><p class="noindent" ></div><hr class="endfigure">
+      <!--l. 98--><p class="indent" >    <span 
+class="cmr-10x-x-109">To check the results of setting the random number generator on a</span>
+      <span 
+class="cmr-10x-x-109">per-track basis we add additional state to G4Track. For compatibility with</span>
+      <span 
+class="cmr-10x-x-109">different random number generators and minimal overhead the additional</span>
+      <span 
+class="cmr-10x-x-109">state is a single number that is used as the seed for the random number</span>
+      <span 
+class="cmr-10x-x-109">generator at the beginning of tracking. The stored number represents the</span>
+      <span 
+class="cmr-10x-x-109">hashed pedigree of the track. The hashed pedigree is used to seed the</span>
+      <span 
+class="cmr-10x-x-109">random number generator at the beginning of processing each track. Since</span>
+      <span 
+class="cmr-10x-x-109">in Geant4 the track is processed by the thread from start to the end, it is</span>
+      <span 
+class="cmr-10x-x-109">unnecessary to store a copy of the random number generator state in the</span>
+      <span 
+class="cmr-10x-x-109">track.</span>
+      <!--l. 104--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">2.1   </span></span> <a 
+ id="x1-60002.1"></a><span 
+class="cmr-10x-x-109">Hash calculation</span></h4>
+      <!--l. 105--><p class="noindent" ><span 
+class="cmr-10x-x-109">Because when the secondary track is created not full pedigree of its parent</span>
+      <span 
+class="cmr-10x-x-109">but only the hash is available, the hashing algorithm is similar to</span>
+      <span 
+class="cmr-10x-x-109">Merkle-Damg</span><span 
+class="cmr-10x-x-109">ård</span><span 
+class="cmr-10x-x-109">&#x00A0;construct</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><span class="cite"><span 
+class="cmr-10x-x-109">[</span><a 
+href="#XDamgard1990"><span 
+class="cmr-10x-x-109">2</span></a><span 
+class="cmr-10x-x-109">,</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><a 
+href="#XMerkle1990"><span 
+class="cmr-10x-x-109">5</span></a><span 
+class="cmr-10x-x-109">]</span></span> <span 
+class="cmr-10x-x-109">with more relaxed requirements</span>
+                                                                          
+
+                                                                          
+      <span 
+class="cmr-10x-x-109">compared to cryptographic uses. At each secondary track creation a</span>
+      <span 
+class="cmr-10x-x-109">compression function is used to calculate the hashed pedigree of the</span>
+      <span 
+class="cmr-10x-x-109">secondary track from the hashed pedigree of its parent and the number of</span>
+      <span 
+class="cmr-10x-x-109">already created siblings. To assure cryptographic quality one could use</span>
+      <span 
+class="cmr-10x-x-109">256-bit hash and SHA-256 (wich is a Merkle-Damg</span><span 
+class="cmr-10x-x-109">ård</span><span 
+class="cmr-10x-x-109">&#x00A0;construct itself) as</span>
+      <span 
+class="cmr-10x-x-109">the compression function, but since the simulated physics and seeding of the</span>
+      <span 
+class="cmr-10x-x-109">random number generator add more complexity, we implemented a simpler</span>
+      <span 
+class="cmr-10x-x-109">scheme. The hash is a 64-bit integer, and the compression function is</span>
+      <span 
+class="cmr-10x-x-109">standard hash followed by has</span><span 
+class="cmr-10x-x-109">_combine from boost. The initial</span>
+      <span 
+class="cmr-10x-x-109">vector is generated by the random engine at the beginning of the</span>
+      <span 
+class="cmr-10x-x-109">event.</span>
+      <!--l. 112--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">2.2   </span></span> <a 
+ id="x1-70002.2"></a><span 
+class="cmr-10x-x-109">Counter-based Pseudo-Random Number Generators</span></h4>
+      <!--l. 113--><p class="noindent" ><span 
+class="cmr-10x-x-109">To reduce the overhead from frequent generator seeding one can use a</span>
+      <span 
+class="cmr-10x-x-109">generator with a simple transition function and compact state but a more</span>
+      <span 
+class="cmr-10x-x-109">complex output function. Counter-based Pseudo-Random Number</span>
+      <span 
+class="cmr-10x-x-109">Generators are the ultimate example of such generators with the</span>
+      <span 
+class="cmr-10x-x-109">transition function is a simple increment and the output is a block</span>
+      <span 
+class="cmr-10x-x-109">cipher. To take advantage of an already tested solution we provide a</span>
+      <span 
+class="cmr-10x-x-109">HepRandomEngine wrapper for Philox1x64 and Threefry1x64 generators</span>
+      <span 
+class="cmr-10x-x-109">from Random123 library. They both have a 64-bit counter an thus generate</span>
+      <span 
+class="cmr-10x-x-109">64-bit output sufficient to generate a double precision floating point</span>
+      <span 
+class="cmr-10x-x-109">value in [0;1) range - the most frequent use case in Geant4. Also</span>
+      <span 
+class="cmr-10x-x-109">they both use an additional key, which allows easy spawning of</span>
+      <span 
+class="cmr-10x-x-109">independent streams. Other variations of Philox and Threefry</span>
+      <span 
+class="cmr-10x-x-109">(as well as AES-based) generators provided in this library seem</span>
+      <span 
+class="cmr-10x-x-109">excessive because of bigger output size, but may be more efficient</span>
+      <span 
+class="cmr-10x-x-109">when simultaneously generating many random numbers for vector</span>
+      <span 
+class="cmr-10x-x-109">computation.</span>
+      <!--l. 122--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">2.3   </span></span> <a 
+ id="x1-80002.3"></a><span 
+class="cmr-10x-x-109">Testing</span></h4>
+      <!--l. 123--><p class="noindent" >
+         <h5 class="subsubsectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">2.3.1   </span></span> <a 
+ id="x1-90002.3.1"></a><span 
+class="cmr-10x-x-109">Reproducibility</span></h5>
+      <!--l. 124--><p class="noindent" ><span 
+class="cmr-10x-x-109">To test the reproducibility we add a runtime capability to turn on and off</span>
+      <span 
+class="cmr-10x-x-109">setting seeds at the start of tracking via a Geant4 macro command. We</span>
+      <span 
+class="cmr-10x-x-109">modify a basic example to process tracks either in the default (first in last</span>
+                                                                          
+
+                                                                          
+      <span 
+class="cmr-10x-x-109">out) order, or in a non-deterministic depending on the standard random</span>
+      <span 
+class="cmr-10x-x-109">device. To compare the results we calculate p-value between the</span>
+      <span 
+class="cmr-10x-x-109">output histograms (which represent the number of tracks in each</span>
+      <span 
+class="cmr-10x-x-109">generation) from different runs. The full test macros are presented in</span>
+      <span 
+class="cmr-10x-x-109">Appendix</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><a 
+href="#x1-15000A"><span 
+class="cmr-10x-x-109">A</span><!--tex4ht:ref: TESTMACROS --></a><span 
+class="cmr-10x-x-109">.</span>
+      <!--l. 130--><p class="indent" >     <span 
+class="cmr-10x-x-109">To check the sensitivity of the test we calculate the p-values with the</span>
+      <span 
+class="cmr-10x-x-109">default tracking order for runs with the same engine and different seeds set</span>
+      <span 
+class="cmr-10x-x-109">via a macro command. We find that for runs with the same seeds the</span>
+      <span 
+class="cmr-10x-x-109">p-value equals 1, and for runs with different seeds the p-value </span><span 
+class="cmmi-10x-x-109">p</span><span 
+class="cmmi-10x-x-109">&#x00A0; &#x003C;</span> <span 
+class="cmmi-10x-x-109">&#x00A0;</span><span 
+class="cmr-10x-x-109">1 (less</span>
+      <span 
+class="cmr-10x-x-109">than 10</span><sup><span 
+class="cmsy-8">-</span><span 
+class="cmr-8">10</span></sup> <span 
+class="cmr-10x-x-109">for this histogram because of correlated bins and high</span>
+      <span 
+class="cmr-10x-x-109">statistics), thus the test is sensitive to the random numbers used during the</span>
+      <span 
+class="cmr-10x-x-109">simulation. The p-value for runs with random tracking order </span><span 
+class="cmmi-10x-x-109">p</span><span 
+class="cmmi-10x-x-109">&#x00A0; &#x003C;</span> <span 
+class="cmmi-10x-x-109">&#x00A0;</span><span 
+class="cmr-10x-x-109">1,</span>
+      <span 
+class="cmr-10x-x-109">thus the test is sensitive to the tracking order. The p-value for</span>
+      <span 
+class="cmr-10x-x-109">runs with reseeding at the beginning of tracking are equal 1 with</span>
+      <span 
+class="cmr-10x-x-109">any tracking order, thus the pedigrees do assure reproducibility</span>
+      <span 
+class="cmr-10x-x-109">independent of tracking order. The full test results are presented in</span>
+      <span 
+class="cmr-10x-x-109">Appendix</span><span 
+class="cmr-10x-x-109">&#x00A0;</span><a 
+href="#x1-16000B"><span 
+class="cmr-10x-x-109">B</span><!--tex4ht:ref: TESTRESULTS --></a><span 
+class="cmr-10x-x-109">.</span>
+         <h5 class="subsubsectionHead"><span class="titlemark"><span 
+class="cmr-10x-x-109">2.3.2   </span></span> <a 
+ id="x1-100002.3.2"></a><span 
+class="cmr-10x-x-109">Physical results</span></h5>
+      <!--l. 137--><p class="noindent" ><hr class="figure"><div class="figure" 
+><a 
+ id="x1-100012"></a> <object data="gsocPreprint-1.svg" width="760.27025 " height="417.8804 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+<br /> <div class="caption" 
+><span class="id">Figure&#x00A0;2: </span><span  
+class="content">Neutron induced gamma spectrum from a graphite sample with
+different random engines.</span></div><!--tex4ht:label?: x1-100012 -->
+      <!--l. 141--><p class="noindent" ></div><hr class="endfigure">
+      <!--l. 142--><p class="indent" >    <tspan font-family="cmr" font-size="10">To assess the physical results we compare the output of Hadr06</tspan>
+                                                                          
+
+                                                                          
+      <tspan font-family="cmr" font-size="10">standard example with different random number generators. The</tspan>
+      <tspan font-family="cmr" font-size="10">macro used was derived from graphite.mac by multiplying the</tspan>
+      <tspan font-family="cmr" font-size="10">statistics by ten. Figure</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><a 
+href="#x1-100002.3.2"><tspan font-family="cmr" font-size="10">2.3.2</tspan><!--tex4ht:ref: GAMMASPECTRUM --></a> <tspan font-family="cmr" font-size="10">shows the spectrum of gamma rays</tspan>
+      <tspan font-family="cmr" font-size="10">emitted from a graphite sample. The most intensive line at 4.4 MeV</tspan>
+      <tspan font-family="cmr" font-size="10">corresponds to the first excited level of</tspan> <sup><tspan font-family="cmr" font-size="8">12</tspan></sup><tspan font-family="cmmi" font-size="10">C</tspan><tspan font-family="cmr" font-size="10">. The p-values for pairs of</tspan>
+      <tspan font-family="cmr" font-size="10">histograms produced with different engines are in the range 0</tspan><tspan font-family="cmmi" font-size="10">.</tspan><tspan font-family="cmr" font-size="10">1 </tspan><tspan font-family="cmsy" font-size="10">- </tspan><tspan font-family="cmr" font-size="10">0</tspan><tspan font-family="cmmi" font-size="10">.</tspan><tspan font-family="cmr" font-size="10">9. It</tspan>
+      <tspan font-family="cmr" font-size="10">indicates that the results with different generators are in general</tspan>
+      <tspan font-family="cmr" font-size="10">agreement, including the new counter-based ones. For full results see</tspan>
+      <tspan font-family="cmr" font-size="10">Appendix</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><a 
+href="#x1-16000B"><tspan font-family="cmr" font-size="10">B</tspan><!--tex4ht:ref: TESTRESULTS --></a><tspan font-family="cmr" font-size="10">.</tspan>
+      <!--l. 150--><p class="noindent" >
+         <h5 class="subsubsectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">2.3.3   </tspan></span> <a 
+ id="x1-110002.3.3"></a><tspan font-family="cmr" font-size="10">Performance</tspan></h5>
+                                                                          
+
+                                                                          
+      <!--l. 152--><p class="noindent" ><hr class="figure"><div class="figure" 
+><a 
+ id="x1-110013"></a><object data="gsocPreprint-2.svg" width="760.27025 " height="692.27612 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+<br /> <div class="caption" 
+><span class="id">Figure&#x00A0;3: </span><span  
+class="content">User run time with (Y axis) and without (X axis) reseeding.</span></div><!--tex4ht:label?: x1-110013 -->
+      <!--l. 156--><p class="noindent" ></div><hr class="endfigure">
+      <!--l. 158--><p class="indent" >    <tspan font-family="cmr" font-size="10">Figure</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><a 
+href="#x1-110002.3.3"><tspan font-family="cmr" font-size="10">2.3.3</tspan><!--tex4ht:ref: USERTIME --></a> <tspan font-family="cmr" font-size="10">shows run times of a standard geant4 example with the</tspan>
+      <tspan font-family="cmr" font-size="10">standard random number generation and with reseeding based on</tspan>
+      <tspan font-family="cmr" font-size="10">pedigrees for different random number generators. To calculate</tspan>
+      <tspan font-family="cmr" font-size="10">the mean values and standard deviation the example was run 16</tspan>
+      <tspan font-family="cmr" font-size="10">times with each generator. Times for each run are presented in</tspan>
+      <tspan font-family="cmr" font-size="10">Appendix</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><a 
+href="#x1-110002.3.3"><tspan font-family="cmr" font-size="10">2.3.3</tspan><!--tex4ht:ref: USERTIME --></a><tspan font-family="cmr" font-size="10">. The overhead depends on the complexity of the seeding</tspan>
+      <tspan font-family="cmr" font-size="10">function of the random number generator. It is the small for the new</tspan>
+      <tspan font-family="cmr" font-size="10">counter-based generators, because the complexity is shifted to the output</tspan>
+      <tspan font-family="cmr" font-size="10">function.</tspan>
+                                                                          
+
+                                                                          
+      <!--l. 165--><p class="noindent" >
+         <h3 class="sectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">3   </tspan></span> <a 
+ id="x1-120003"></a><tspan font-family="cmr" font-size="10">Conclusion</tspan></h3>
+      <!--l. 167--><p class="noindent" ><tspan font-family="cmr" font-size="10">We implemented reproducible pseudo-random number generation in a</tspan>
+      <tspan font-family="cmr" font-size="10">Geant4-based prototype. We showed the reproducibility of the results</tspan>
+      <tspan font-family="cmr" font-size="10">independent of the track processing order. Also we profiled the overhead for</tspan>
+      <tspan font-family="cmr" font-size="10">different random number engines. We showed that it is rather low for</tspan>
+      <tspan font-family="cmr" font-size="10">appropriate random number engines.</tspan>
+      <!--l. 172--><p class="indent" >     <tspan font-family="cmr" font-size="10">Therefore it is worth to apply a similar algorithm for reproducible</tspan>
+      <tspan font-family="cmr" font-size="10">pseudo-random number generation in multithreaded GeantV simulations.</tspan>
+      <!--l. 174--><p class="noindent" >
+         <h3 class="sectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">4   </tspan></span> <a 
+ id="x1-130004"></a><tspan font-family="cmr" font-size="10">Acknowledgements</tspan></h3>
+      <!--l. 175--><p class="noindent" ><tspan font-family="cmr" font-size="10">Development sponsored by Google in Google Summer of Code 2017 under</tspan>
+      <tspan font-family="cmr" font-size="10">supervision of John Apostolakis and Sandro Wenzel.</tspan>
+      <!--l. 177--><p class="indent" >
+                                                                          
+
+                                                                          
+         <h3 class="likesectionHead"><a 
+ id="x1-140004"></a><tspan font-family="cmr" font-size="10">References</tspan></h3>
+      <!--l. 1--><p class="noindent" >
+   <div class="thebibliography">
+   <p class="bibitem" ><span class="biblabel">
+ <tspan font-family="cmr" font-size="10">[1]</tspan><span class="bibsp"><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan></span></span><a 
+ id="X1742-6596-523-1-012004"></a><tspan font-family="cmr" font-size="10">John  Apostolakis,  Ren</tspan><tspan font-family="cmr" font-size="10">é  Brun,  Federico  Carminati,  Andrei</tspan>
+   <tspan font-family="cmr" font-size="10">Gheata, and Sandro Wenzel.  A concurrent vector-based steering</tspan>
+   <tspan font-family="cmr" font-size="10">framework for particle transport.  </tspan><tspan font-family="cmti" font-size="10">Journal of Physics: Conference</tspan>
+   <tspan font-family="cmti" font-size="10">Series</tspan><tspan font-family="cmr" font-size="10">, 523(1):012004, 2014.</tspan>
+   </p>
+   <p class="bibitem" ><span class="biblabel">
+ <tspan font-family="cmr" font-size="10">[2]</tspan><span class="bibsp"><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan></span></span><a 
+ id="XDamgard1990"></a><tspan font-family="cmr" font-size="10">Ivan</tspan><tspan font-family="cmr" font-size="10">&#x00A0;Bjerre Damg</tspan><tspan font-family="cmr" font-size="10">ård. </tspan><tspan font-family="cmti" font-size="10">A Design Principle for Hash Functions</tspan><tspan font-family="cmr" font-size="10">,</tspan>
+   <tspan font-family="cmr" font-size="10">pages 416&#8211;427. Springer New York, New York, NY, 1990.</tspan>
+   </p>
+   <p class="bibitem" ><span class="biblabel">
+ <tspan font-family="cmr" font-size="10">[3]</tspan><span class="bibsp"><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan></span></span><a 
+ id="XLeiserson:2012:DPR:2145816.2145841"></a><tspan font-family="cmr" font-size="10">Charles</tspan><tspan font-family="cmr" font-size="10">&#x00A0;E.           Leiserson,           Tao</tspan><tspan font-family="cmr" font-size="10">&#x00A0;B.           Schardl,</tspan>
+   <tspan font-family="cmr" font-size="10">and Jim Sukha. Deterministic parallel random-number generation</tspan>
+   <tspan font-family="cmr" font-size="10">for dynamic-multithreading platforms. In </tspan><tspan font-family="cmti" font-size="10">Proceedings of the 17th</tspan>
+   <tspan font-family="cmti" font-size="10">ACM SIGPLAN Symposium on Principles and Practice of Parallel</tspan>
+   <tspan font-family="cmti" font-size="10">Programming</tspan><tspan font-family="cmr" font-size="10">, PPoPP &#8217;12, pages 193&#8211;204, New York, NY, USA,</tspan>
+   <tspan font-family="cmr" font-size="10">2012. ACM.</tspan>
+   </p>
+   <p class="bibitem" ><span class="biblabel">
+ <tspan font-family="cmr" font-size="10">[4]</tspan><span class="bibsp"><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan></span></span><a 
+ id="XLeiserson:2012:DPR:2370036.2145841"></a><tspan font-family="cmr" font-size="10">Charles</tspan><tspan font-family="cmr" font-size="10">&#x00A0;E.</tspan>
+   <tspan font-family="cmr" font-size="10">Leiserson, Tao</tspan><tspan font-family="cmr" font-size="10">&#x00A0;B. Schardl, and Jim Sukha. Deterministic parallel</tspan>
+   <tspan font-family="cmr" font-size="10">random-number generation for dynamic-multithreading platforms.</tspan>
+   <tspan font-family="cmti" font-size="10">SIGPLAN Not.</tspan><tspan font-family="cmr" font-size="10">, 47(8):193&#8211;204, February 2012.</tspan>
+   </p>
+   <p class="bibitem" ><span class="biblabel">
+ <tspan font-family="cmr" font-size="10">[5]</tspan><span class="bibsp"><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan><tspan font-family="cmr" font-size="10">&#x00A0;</tspan></span></span><a 
+ id="XMerkle1990"></a><tspan font-family="cmr" font-size="10">Ralph</tspan><tspan font-family="cmr" font-size="10">&#x00A0;C. Merkle. </tspan><tspan font-family="cmti" font-size="10">A Certified Digital Signature</tspan><tspan font-family="cmr" font-size="10">, pages 218&#8211;238.</tspan>
+   <tspan font-family="cmr" font-size="10">Springer New York, New York, NY, 1990.</tspan>
+</p>
+   </div>
+      <!--l. 182--><p class="noindent" >
+         <h3 class="sectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">A   </tspan></span> <a 
+ id="x1-15000A"></a><tspan font-family="cmr" font-size="10">Test macros</tspan></h3>
+      <!--l. 185--><p class="noindent" >
+                                                                          
+
+                                                                          
+         <div class="fancyvrb" id="fancyvrb1">
+<a 
+ id="x1-15002r1"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;Macro</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;file</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runTr.mac</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;for</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;modified</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;example</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;B2b</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15004r2"></a><tspan font-family="cmtt" font-size="10">#</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15006r3"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;To</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;be</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;preferably</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;in</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;batch,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;without</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;graphics:</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15008r4"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;%</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;exampleB2b</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runTr.mac</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15010r5"></a><tspan font-family="cmtt" font-size="10">#</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15012r6"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;Runs</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;example</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;with</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;different</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;stacking</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;and</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;seeding</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;options</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15014r7"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;to</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;demonstrate</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;result</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;independence</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;of</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;tracking</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;order</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15016r8"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;if</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;track</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;hash</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;based</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;seeding</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;is</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;used.</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15018r9"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;The</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;executed</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runSomeTimes.mac</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runs</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;simulation</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;with</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;different</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;initial</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;seeds</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15020r10"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;to</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;validate</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;test</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;and</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;to</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;avoid</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;initial</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;condition</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;dependence.</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15022r11"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15024r12"></a><tspan font-family="cmtt" font-size="10">/tracking/verbose</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15026r13"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15028r14"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15030r15"></a><tspan font-family="cmtt" font-size="10">/run/numberOfThreads</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15032r16"></a><tspan font-family="cmtt" font-size="10">/B2/run/setGenHistLimit</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;30</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15034r17"></a><tspan font-family="cmtt" font-size="10">/run/initialize</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15036r18"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15038r19"></a><tspan font-family="cmtt" font-size="10">/gun/particle</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;e-</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15040r20"></a><tspan font-family="cmtt" font-size="10">/gun/energy</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;GeV</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15042r21"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15044r22"></a><tspan font-family="cmtt" font-size="10">/hits/verbose</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15046r23"></a><tspan font-family="cmtt" font-size="10">/globalField/verbose</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15048r24"></a><tspan font-family="cmtt" font-size="10">/event/verbose</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15050r25"></a><tspan font-family="cmtt" font-size="10">/run/verbose</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15052r26"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15054r27"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;default</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;mode,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;used</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;in</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;geant4</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;as</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;of</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;version</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;10.04</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;beta</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15056r28"></a><tspan font-family="cmtt" font-size="10">/tracking/rng</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;default</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15058r29"></a><tspan font-family="cmtt" font-size="10">/B2/stack/setStackingType</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;default</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15060r30"></a><tspan font-family="cmtt" font-size="10">/B2/track/restoreTrackSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;false</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15062r31"></a><tspan font-family="cmtt" font-size="10">/control/execute</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runSomeTimes.mac</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15064r32"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15066r33"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;leaves</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;seeding</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;same</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;but</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;shuffles</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;tracking</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;order</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15068r34"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;to</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;make</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;sure</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;it</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;works,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;result</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;should</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;be</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;irreproducible</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15070r35"></a><tspan font-family="cmtt" font-size="10">/tracking/rng</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;default</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15072r36"></a><tspan font-family="cmtt" font-size="10">/B2/stack/setStackingType</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;random</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15074r37"></a><tspan font-family="cmtt" font-size="10">/B2/track/restoreTrackSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;false</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15076r38"></a><tspan font-family="cmtt" font-size="10">/control/execute</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runSomeTimes.mac</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15078r39"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15080r40"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;activates</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;toolkit-level</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;seed</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;hashing</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;does</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;not</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;shuffle</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;tracks</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15082r41"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;results</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;are</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;reproducible</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15084r42"></a><tspan font-family="cmtt" font-size="10">/tracking/rng</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;generic</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15086r43"></a><tspan font-family="cmtt" font-size="10">/B2/stack/setStackingType</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;default</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15088r44"></a><tspan font-family="cmtt" font-size="10">/B2/track/restoreTrackSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;false</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15090r45"></a><tspan font-family="cmtt" font-size="10">/control/execute</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runSomeTimes.mac</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15092r46"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15094r47"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;activates</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;toolkit-level</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;seed</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;hashing</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;does</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;not</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;shuffle</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;tracks</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15096r48"></a><tspan font-family="cmtt" font-size="10">#</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;results</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;are</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;reproducible</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;and</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;the</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;same</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;as</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;without</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;shuffling</tspan>
+                                                                          
+
+                                                                          
+<br class="fancyvrb" /><a 
+ id="x1-15098r49"></a><tspan font-family="cmtt" font-size="10">/tracking/rng</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;generic</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15100r50"></a><tspan font-family="cmtt" font-size="10">/B2/stack/setStackingType</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;random</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15102r51"></a><tspan font-family="cmtt" font-size="10">/B2/track/restoreTrackSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;false</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15104r52"></a><tspan font-family="cmtt" font-size="10">/control/execute</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;runSomeTimes.mac</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15106r53"></a>
+   </div>
+
+      <!--l. 187--><p class="indent" >
+         <div class="fancyvrb" id="fancyvrb2">
+<a 
+ id="x1-15108r1"></a><tspan font-family="cmtt" font-size="10">#runSomeTimes.mac</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15110r2"></a><tspan font-family="cmtt" font-size="10">#run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;several</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;times</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;to</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;check</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;variability</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15112r3"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15114r4"></a><tspan font-family="cmtt" font-size="10">/run/printProgress</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;10</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15116r5"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15118r6"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15120r7"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15122r8"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15124r9"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15126r10"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15128r11"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15130r12"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8989</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1234567</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15132r13"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15134r14"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15136r15"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;9876</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;12345</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15138r16"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15140r17"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15142r18"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;98079843</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2134512</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15144r19"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15146r20"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15148r21"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;98079843</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2134512</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15150r22"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15152r23"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15154r24"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;13417512123</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;231111457008</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15156r25"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15158r26"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15160r27"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;13417512123</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;231111457008</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15162r28"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15164r29"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15166r30"></a><tspan font-family="cmtt" font-size="10">/random/setSeeds</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;13417512123</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;231111457008</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15168r31"></a><tspan font-family="cmtt" font-size="10">/run/beamOn</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-15170r32"></a>
+<br class="fancyvrb" /><a 
+ id="x1-15172r33"></a>
+   </div>
+      <!--l. 189--><p class="noindent" >
+         <h3 class="sectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">B   </tspan></span> <a 
+ id="x1-16000B"></a><tspan font-family="cmr" font-size="10">Test results</tspan></h3>
+                                                                          
+
+                                                                          
+      <!--l. 191--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">B.1   </tspan></span> <a 
+ id="x1-17000B.1"></a><tspan font-family="cmr" font-size="10">Reproducibility</tspan></h4>
+      <!--l. 193--><p class="noindent" >
+         <div class="fancyvrb" id="fancyvrb3">
+<a 
+ id="x1-17002r1"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;------------------------------------------------------------</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17004r2"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;Welcome</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;to</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;ROOT</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.10/04</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;http://root.cern.ch</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;c</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1995-2017,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;The</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;ROOT</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;Team</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;Built</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;for</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;linuxx8664gcc</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;From</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;tag</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;v6-10-04,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;28</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;July</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2017</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;Try</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;&#8217;.help&#8217;,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;&#8217;.demo&#8217;,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;&#8217;.license&#8217;,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;&#8217;.credits&#8217;,</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;&#8217;.quit&#8217;/&#8217;.q&#8217;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;------------------------------------------------------------</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17006r3"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17008r4"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17010r5"></a><tspan font-family="cmtt" font-size="10">Processing</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;script.C...</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17012r6"></a><tspan font-family="cmtt" font-size="10">Mode</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17014r7"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-138</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.6e-186</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17016r8"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-138</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.6e-186</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17018r9"></a><tspan font-family="cmtt" font-size="10">2.7e-138</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-138</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1e-154</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-40</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-40</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-40</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17020r10"></a><tspan font-family="cmtt" font-size="10">2.6e-186</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.6e-186</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1e-154</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-233</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-233</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-233</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17022r11"></a><tspan font-family="cmtt" font-size="10">7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17024r12"></a><tspan font-family="cmtt" font-size="10">7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17026r13"></a><tspan font-family="cmtt" font-size="10">1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-40</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-233</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17028r14"></a><tspan font-family="cmtt" font-size="10">1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-40</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-233</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17030r15"></a><tspan font-family="cmtt" font-size="10">1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-196</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-40</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-233</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17032r16"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17034r17"></a><tspan font-family="cmtt" font-size="10">Mode</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17036r18"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-94</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.3e-76</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.3e-80</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.7e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-74</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.1e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.4e-99</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.5e-148</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17038r19"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-94</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-65</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2e-103</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-187</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-152</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-87</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-137</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17040r20"></a><tspan font-family="cmtt" font-size="10">&#x00A0;6.3e-76</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;9.8e-26</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-26</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.7e-81</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.4e-54</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.8e-36</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-57</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17042r21"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.3e-80</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-65</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;9.8e-26</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-20</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.2e-132</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.4e-59</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.5e-87</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17044r22"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.7e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2e-103</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-26</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-20</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.4e-84</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.6e-52</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.7e-34</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.2e-77</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17046r23"></a><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-74</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-187</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.7e-81</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.2e-132</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.4e-84</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-55</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2e-83</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17048r24"></a><tspan font-family="cmtt" font-size="10">&#x00A0;7.1e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-152</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.4e-54</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.4e-59</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.6e-52</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-55</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.1e-54</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.3e-52</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17050r25"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.4e-99</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.5e-87</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.8e-36</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.7e-34</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2e-83</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.1e-54</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.4e-20</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17052r26"></a><tspan font-family="cmtt" font-size="10">1.5e-148</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.9e-137</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-57</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.5e-87</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.2e-77</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.3e-52</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.4e-20</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17054r27"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17056r28"></a><tspan font-family="cmtt" font-size="10">Mode</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#2</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17058r29"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17060r30"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17062r31"></a><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-116</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17064r32"></a><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-116</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-93</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17066r33"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17068r34"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17070r35"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17072r36"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17074r37"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.7e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17076r38"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17078r39"></a><tspan font-family="cmtt" font-size="10">Mode</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#3</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17080r40"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17082r41"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17084r42"></a><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.9e-35</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.1e-116</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan>
+                                                                          
+
+                                                                          
+<br class="fancyvrb" /><a 
+ id="x1-17086r43"></a><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.5e-62</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.1e-116</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17088r44"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17090r45"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-67</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.8e-31</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-106</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17092r46"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17094r47"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17096r48"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-38</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.4e-33</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.6e-93</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.2e-15</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17098r49"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17100r50"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#0</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17102r51"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.3e-51</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-122</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-122</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17104r52"></a><tspan font-family="cmtt" font-size="10">&#x00A0;2.3e-51</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-100</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-100</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17106r53"></a><tspan font-family="cmtt" font-size="10">1.2e-122</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-100</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17108r54"></a><tspan font-family="cmtt" font-size="10">1.2e-122</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.9e-100</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17110r55"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17112r56"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17114r57"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-16</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-122</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.2e-122</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17116r58"></a><tspan font-family="cmtt" font-size="10">&#x00A0;7.9e-16</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.3e-103</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.3e-103</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17118r59"></a><tspan font-family="cmtt" font-size="10">1.2e-122</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.3e-103</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17120r60"></a><tspan font-family="cmtt" font-size="10">1.2e-122</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.3e-103</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17122r61"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17124r62"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#2</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17126r63"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-45</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-45</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17128r64"></a><tspan font-family="cmtt" font-size="10">&#x00A0;2.7e-68</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-21</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-21</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17130r65"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-45</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-21</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17132r66"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-45</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.7e-21</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17134r67"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17136r68"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#3</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17138r69"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4e-102</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.5e-26</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7e-26</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17140r70"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4e-102</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-90</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-90</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17142r71"></a><tspan font-family="cmtt" font-size="10">&#x00A0;6.5e-26</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-90</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17144r72"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7e-26</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-90</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17146r73"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17148r74"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#4</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17150r75"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;8.2e-64</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.6e-108</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.6e-108</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17152r76"></a><tspan font-family="cmtt" font-size="10">&#x00A0;8.2e-64</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.5e-36</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.5e-36</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17154r77"></a><tspan font-family="cmtt" font-size="10">3.6e-108</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.5e-36</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17156r78"></a><tspan font-family="cmtt" font-size="10">3.6e-108</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.5e-36</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17158r79"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17160r80"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#5</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17162r81"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;6.3e-90</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.6e-108</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.6e-108</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17164r82"></a><tspan font-family="cmtt" font-size="10">&#x00A0;6.3e-90</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.2e-135</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.2e-135</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17166r83"></a><tspan font-family="cmtt" font-size="10">3.6e-108</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.2e-135</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17168r84"></a><tspan font-family="cmtt" font-size="10">3.6e-108</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;4.2e-135</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17170r85"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17172r86"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#6</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17174r87"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-17</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17176r88"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.3e-17</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.4e-54</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.4e-54</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17178r89"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.4e-54</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17180r90"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.4e-54</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17182r91"></a>
+                                                                          
+
+                                                                          
+<br class="fancyvrb" /><a 
+ id="x1-17184r92"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#7</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17186r93"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-75</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17188r94"></a><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-75</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.4e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.4e-53</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17190r95"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.4e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17192r96"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;7.4e-53</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17194r97"></a>
+<br class="fancyvrb" /><a 
+ id="x1-17196r98"></a><tspan font-family="cmtt" font-size="10">Run</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;#8</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17198r99"></a><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;3.9e-60</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17200r100"></a><tspan font-family="cmtt" font-size="10">&#x00A0;3.9e-60</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-101</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-101</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17202r101"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-101</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17204r102"></a><tspan font-family="cmtt" font-size="10">&#x00A0;5.5e-95</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1.6e-101</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;</tspan><tspan font-family="cmtt" font-size="10">&#x00A0;1</tspan>
+<br class="fancyvrb" /><a 
+ id="x1-17206r103"></a>
+   </div>
+      <!--l. 195--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">B.2   </tspan></span> <a 
+ id="x1-18000B.2"></a><tspan font-family="cmr" font-size="10">Physical results</tspan></h4>
+      <!--l. 197--><p class="noindent" ><tspan font-family="cmr" font-size="10">P-values for gamma spectra histograms with different generators:</tspan>
+     <ul class="itemize1">
+     <li class="itemize"><tspan font-family="cmr" font-size="10">Debug build:</tspan><br 
+class="newline" /><!--tex4ht:inline--><div class="tabular"> <table id="TBL-2" class="tabular" 
+cellspacing="0" cellpadding="0"  
+><colgroup id="TBL-2-1g"><col 
+id="TBL-2-1"><col 
+id="TBL-2-2"><col 
+id="TBL-2-3"><col 
+id="TBL-2-4"><col 
+id="TBL-2-5"><col 
+id="TBL-2-6"></colgroup><tr  
+ style="vertical-align:baseline;" id="TBL-2-1-"><td  style="white-space:nowrap; text-align:left;" id="TBL-2-1-1"  
+class="td11"><tspan font-family="cmr" font-size="10">1   </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-1-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.22</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-1-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.83</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-1-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-1-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.12</tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-2-1-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.57</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-2-2-"><td  style="white-space:nowrap; text-align:left;" id="TBL-2-2-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.22</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-2-2"  
+class="td11"> <tspan font-family="cmr" font-size="10">1 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-2-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.19</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-2-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.42</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-2-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.89</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-2-2-6"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.8</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-2-3-"><td  style="white-space:nowrap; text-align:left;" id="TBL-2-3-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.83</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-3-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.19</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-3-3"  
+class="td11"> <tspan font-family="cmr" font-size="10">1  </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-3-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.68</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-3-5"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.5 </tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-2-3-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-2-4-"><td  style="white-space:nowrap; text-align:left;" id="TBL-2-4-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-4-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.42</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-4-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.68</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-4-4"  
+class="td11"> <tspan font-family="cmr" font-size="10">1 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-4-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.29</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-2-4-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-2-5-"><td  style="white-space:nowrap; text-align:left;" id="TBL-2-5-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.12</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-5-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.89</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-5-3"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.5 </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-5-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.29</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-2-5-5"  
+class="td11"> <tspan font-family="cmr" font-size="10">1  </tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-2-5-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.76</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-2-6-"><td  style="white-space:nowrap; text-align:left;" id="TBL-2-6-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.57</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-6-2"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.8 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-6-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-6-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-2-6-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.76</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-2-6-6"  
+class="td11"> <tspan font-family="cmr" font-size="10">1</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-2-7-"><td  style="white-space:nowrap; text-align:left;" id="TBL-2-7-1"  
+class="td11">   </td></tr></table>
+     </div>
+     </li>
+     <li class="itemize"><tspan font-family="cmr" font-size="10">Release build with 10x statistics:</tspan><br 
+class="newline" /><!--tex4ht:inline--><div class="tabular"> <table id="TBL-3" class="tabular" 
+cellspacing="0" cellpadding="0"  
+><colgroup id="TBL-3-1g"><col 
+id="TBL-3-1"><col 
+id="TBL-3-2"><col 
+id="TBL-3-3"><col 
+id="TBL-3-4"><col 
+id="TBL-3-5"><col 
+id="TBL-3-6"></colgroup><tr  
+ style="vertical-align:baseline;" id="TBL-3-1-"><td  style="white-space:nowrap; text-align:left;" id="TBL-3-1-1"  
+class="td11"><tspan font-family="cmr" font-size="10">1   </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-1-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.44</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-1-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.07</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-1-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.39</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-1-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.12</tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-3-1-6"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.5</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-3-2-"><td  style="white-space:nowrap; text-align:left;" id="TBL-3-2-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.44</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-2-2"  
+class="td11"> <tspan font-family="cmr" font-size="10">1 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-2-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.52</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-2-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.97</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-2-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-3-2-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.93</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-3-3-"><td  style="white-space:nowrap; text-align:left;" id="TBL-3-3-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.07</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-3-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.52</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-3-3"  
+class="td11"> <tspan font-family="cmr" font-size="10">1  </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-3-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.33</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-3-5"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.2 </tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-3-3-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.56</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-3-4-"><td  style="white-space:nowrap; text-align:left;" id="TBL-3-4-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.39</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-4-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.97</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-4-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.33</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-4-4"  
+class="td11"> <tspan font-family="cmr" font-size="10">1 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-4-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.85</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-3-4-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.83</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-3-5-"><td  style="white-space:nowrap; text-align:left;" id="TBL-3-5-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.12</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-5-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.79</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-5-3"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.2 </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-5-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.85</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-3-5-5"  
+class="td11"> <tspan font-family="cmr" font-size="10">1  </tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-3-5-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.42</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-3-6-"><td  style="white-space:nowrap; text-align:left;" id="TBL-3-6-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.5 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-6-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.93</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-6-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.56</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-6-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.83</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-3-6-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.42</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-3-6-6"  
+class="td11"> <tspan font-family="cmr" font-size="10">1</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-3-7-"><td  style="white-space:nowrap; text-align:left;" id="TBL-3-7-1"  
+class="td11">   </td></tr></table>
+     </div>
+     </li>
+     <li class="itemize"><tspan font-family="cmr" font-size="10">With reseeding activated:</tspan><br 
+class="newline" /><!--tex4ht:inline--><div class="tabular"> <table id="TBL-4" class="tabular" 
+cellspacing="0" cellpadding="0"  
+><colgroup id="TBL-4-1g"><col 
+id="TBL-4-1"><col 
+id="TBL-4-2"><col 
+id="TBL-4-3"><col 
+id="TBL-4-4"><col 
+id="TBL-4-5"><col 
+id="TBL-4-6"></colgroup><tr  
+ style="vertical-align:baseline;" id="TBL-4-1-"><td  style="white-space:nowrap; text-align:left;" id="TBL-4-1-1"  
+class="td11"><tspan font-family="cmr" font-size="10">1   </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-1-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.91</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-1-3"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.6 </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-1-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.33</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-1-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.26</tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-4-1-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.35</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-4-2-"><td  style="white-space:nowrap; text-align:left;" id="TBL-4-2-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.91</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-2-2"  
+class="td11"> <tspan font-family="cmr" font-size="10">1 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-2-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.02</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-2-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.85</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-2-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.82</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-4-2-6"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.5</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-4-3-"><td  style="white-space:nowrap; text-align:left;" id="TBL-4-3-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.6 </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-3-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.02</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-3-3"  
+class="td11"> <tspan font-family="cmr" font-size="10">1  </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-3-4"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.1 </tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-3-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.26</tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-4-3-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.76</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-4-4-"><td  style="white-space:nowrap; text-align:left;" id="TBL-4-4-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.33</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-4-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.85</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-4-3"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.1 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-4-4"  
+class="td11"> <tspan font-family="cmr" font-size="10">1 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-4-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.84</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-4-4-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.57</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-4-5-"><td  style="white-space:nowrap; text-align:left;" id="TBL-4-5-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.26</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-5-2"  
+class="td11"><tspan font-family="cmr" font-size="10">0.82</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-5-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.26</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-5-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.84</tspan></td><td  style="white-space:nowrap; text-align:center;" id="TBL-4-5-5"  
+class="td11"> <tspan font-family="cmr" font-size="10">1  </tspan></td><td  style="white-space:nowrap; text-align:right;" id="TBL-4-5-6"  
+class="td11"><tspan font-family="cmr" font-size="10">0.68</tspan></td></tr><tr  
+ style="vertical-align:baseline;" id="TBL-4-6-"><td  style="white-space:nowrap; text-align:left;" id="TBL-4-6-1"  
+class="td11"><tspan font-family="cmr" font-size="10">0.35</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-6-2"  
+class="td11"> <tspan font-family="cmr" font-size="10">0.5 </tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-6-3"  
+class="td11"><tspan font-family="cmr" font-size="10">0.76</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-6-4"  
+class="td11"><tspan font-family="cmr" font-size="10">0.57</tspan></td> <td  style="white-space:nowrap; text-align:center;" id="TBL-4-6-5"  
+class="td11"><tspan font-family="cmr" font-size="10">0.68</tspan></td> <td  style="white-space:nowrap; text-align:right;" id="TBL-4-6-6"  
+class="td11"> <tspan font-family="cmr" font-size="10">1</tspan></td>
+</tr><tr  
+ style="vertical-align:baseline;" id="TBL-4-7-"><td  style="white-space:nowrap; text-align:left;" id="TBL-4-7-1"  
+class="td11">   </td></tr></table>
+     </div></li></ul>
+      <!--l. 229--><p class="noindent" >
+         <h4 class="subsectionHead"><span class="titlemark"><tspan font-family="cmr" font-size="10">B.3   </tspan></span> <a 
+ id="x1-19000B.3"></a><tspan font-family="cmr" font-size="10">Performance</tspan></h4>
+                                                                          
+
+                                                                          
+      <!--l. 231--><p class="noindent" ><object data="gsocPreprint-3.svg" width="760.27025 " height="416.5133 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+      <object data="gsocPreprint-4.svg" width="760.27025 " height="416.5133 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+                                                                          
+
+                                                                          
+      <object data="gsocPreprint-5.svg" width="760.27025 " height="416.5133 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+      <object data="gsocPreprint-6.svg" width="760.27025 " height="416.5133 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+                                                                          
+
+                                                                          
+      <object data="gsocPreprint-7.svg" width="760.27025 " height="416.5133 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+      <object data="gsocPreprint-8.svg" width="760.27025 " height="416.5133 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+          
+</body></html> 
+
+                                                                          
+
+                                                                          
+                                                                          
+
+
