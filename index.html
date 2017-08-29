@@ -24,29 +24,34 @@ in a Fine-Grain Multithreaded Simulation</h2>
 <div class="author" ><span 
 class="cmr-12x-x-120">Dmitry Savin</span></div><br />
 <div class="date" ><span 
-class="cmr-12x-x-120">August 28, 2017</span></div>
+class="cmr-12x-x-120">August 29, 2017</span></div>
    </div>
    <h3 class="likesectionHead"><a 
  id="x1-1000"></a> Motivation </h3>
 <!--l. 43--><p class="noindent" >Particle transport Monte Carlo simulations are a key tool for High Energy Physics
-experiments, including the LHC experiments at CERN. All Monte Carlo (MC)
-simulations depend vitally on Pseudo-Random Number Generators (PRNGs) used
-to sample many distributions. PRNGs used must possess very large periods, fast
-execution, the ability to create a large number of streams, and very good
-correlation properties between streams and sampled values. It must be
+experiments, including the LHC experiments at CERN. All Monte Carlo
+(MC) simulations depend vitally on Pseudo-Random Number Generators
+(PRNGs) used to sample many distributions. PRNGs used must possess
+very large periods, fast execution, the ability to create a large number of
+streams, and very good correlation properties between streams and sampled
+values. One of the key requirements for simulation is that it must be
 possible to reproduce a simulated event any time, for reexamination or
 debugging.
-<!--l. 47--><p class="indent" >   Because of the transition from event-level parallelism in Geant4 to dynamical
-multithreading in GeantV, the tracks in one event or even parts of the same track
-are processed by different threads. Thus to assure reproducibility the
-pseudo-random engine state must be associated with the track itself; and the state
-of the secondary track has to be a deterministic function of the parent track. The
-state can be initialized by seeding the generator with the hashed pedigree of the
-track.
-<!--l. 52--><p class="noindent" >
+<!--l. 48--><p class="indent" >   In Geant the history of the passage of a particle through matter forms a track.
+Each track is divided in steps defined by scatterings, geometry boundaries or user
+limits. Because of the transition from event-level parallelism in Geant4 to
+dynamical multithreading in GeantV, the tracks in one event or even parts of the
+same track are processed by different threads. Thus to assure reproducibility the
+pseudo-random engine state must be associated with the track itself; and
+the state of the secondary track has to be a deterministic function of
+the parent track. The sequence of the number of older siblings of each
+ancestor of a track uniquely represents its pedigree. The hashed pedigree
+of the track can be used to initialize the state of the random number
                                                                           
 
                                                                           
+generator.
+<!--l. 56--><p class="noindent" >
    <h3 class="likesectionHead"><a 
  id="x1-2000"></a> Goals </h3>
       <ul class="itemize1">
@@ -63,13 +68,13 @@ track.
       <li class="itemize">Profile the overhead of setting the generator state.
       </li>
       <li class="itemize">Benchmark the new generators.</li></ul>
-<!--l. 63--><p class="noindent" >
+<!--l. 67--><p class="noindent" >
    <h3 class="likesectionHead"><a 
  id="x1-3000"></a> Implementation </h3>
-<!--l. 65--><p class="noindent" >
+<!--l. 69--><p class="noindent" >
    <h4 class="likesubsectionHead"><a 
  id="x1-4000"></a> Standalone prototype </h4>
-<!--l. 66--><p class="noindent" >The standalone prototype was implemented in accordance with the <a 
+<!--l. 70--><p class="noindent" >The standalone prototype was implemented in accordance with the <a 
 href="https://sd57.github.io/g4dprng/gsoc-proposal-Savin.html" >proposal</a>.
 There is an implementation compatible with any HepRandomEngine from the
 CLHEP library included in geant4 and a specific version for Philox and
@@ -78,10 +83,13 @@ href="https://www.deshawresearch.com/resources_random123.html" >Random123</a> li
 overhead. There is a unit test for each implementation that traverses
 the tree in width-first and depth-first order and checks the equality of
 outcome.
-<!--l. 73--><p class="noindent" >
+                                                                          
+
+                                                                          
+<!--l. 77--><p class="noindent" >
    <h4 class="likesubsectionHead"><a 
  id="x1-5000"></a> Geant4-based prototype </h4>
-<!--l. 75--><p class="noindent" ><hr class="figure"><div class="figure" 
+<!--l. 79--><p class="noindent" ><hr class="figure"><div class="figure" 
 >
                                                                           
 
@@ -91,7 +99,7 @@ outcome.
                                                                           
 
                                                                           
-<!--l. 76--><p class="noindent" ><img 
+<!--l. 80--><p class="noindent" ><img 
 src="gsocReport0x.png" alt="PICT" >
 <a 
  id="x1-5000doc"></a>
@@ -102,8 +110,8 @@ prototype.</span></div><!--tex4ht:label?: x1-50011 -->
                                                                           
 
                                                                           
-<!--l. 79--><p class="noindent" ></div><hr class="endfigure">
-<!--l. 80--><p class="indent" >   A supplementary 64-bit state was added to G4Track. The stored number
+<!--l. 83--><p class="noindent" ></div><hr class="endfigure">
+<!--l. 84--><p class="indent" >   A supplementary 64-bit state was added to G4Track. The stored number
 represents the hashed pedigree of the track. The hashed pedigree is used to seed
 the random number generator at the beginning of processing each track. The
 hash is a <a 
@@ -115,7 +123,7 @@ pairs of histograms obtained with different track processing order were
 calculated.
    <h3 class="likesectionHead"><a 
  id="x1-6000"></a> Benchmarks </h3>
-<!--l. 88--><p class="noindent" ><hr class="figure"><div class="figure" 
+<!--l. 92--><p class="noindent" ><hr class="figure"><div class="figure" 
 >
                                                                           
 
@@ -125,7 +133,7 @@ calculated.
                                                                           
 
                                                                           
-<!--l. 89--><p class="noindent" ><object data="gsocReport-1.svg" width="760.27025 " height="742.02252 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
+<!--l. 93--><p class="noindent" ><object data="gsocReport-1.svg" width="760.27025 " height="742.02252 " type="image/svg+xml"><p>SVG-Viewer needed.</p></object>
 <a 
  id="x1-6000doc"></a>
 <br /> <div class="caption" 
@@ -134,37 +142,37 @@ class="content">User run time with (Y axis) and without (X axis) reseeding.</spa
                                                                           
 
                                                                           
-<!--l. 92--><p class="noindent" ></div><hr class="endfigure">
-<!--l. 94--><p class="indent" >   Figure&#x00A0;<a 
+<!--l. 96--><p class="noindent" ></div><hr class="endfigure">
+<!--l. 98--><p class="indent" >   Figure&#x00A0;<a 
 href="#x1-6000doc"><!--tex4ht:ref: USERTIME --></a> shows run times of a standard geant4 example with the standard
 random number generation and with reseeding based on pedigrees for different
 random number generators. The overhead depends on the complexity of the
-seeding function of the random number generator. It is the small for the new
+seeding function of the random number generator. It is small for the new
 counter-based generators, because the complexity is shifted to the output
 function.
    <h3 class="likesectionHead"><a 
  id="x1-7000"></a> Conclusion </h3>
-<!--l. 101--><p class="noindent" >We implemented reproducible pseudo-random number generation in a
-Geant4-based prototype. We showed the reproducibility of the results independent
-of the track processing order. Also we profiled the overhead for different random
-number engines. We showed that it is rather low for appropriate random number
+<!--l. 105--><p class="noindent" >We implemented a Geant4 prototype who can perform fully reproducible
+simulations in a multithreaded environment and under the exchange of the order
+of track propagation. We profiled the overhead to achieve this reproducability for
+different random number engines and showed that it is quite low for selected
 engines.
-<!--l. 106--><p class="indent" >   Therefore it is worth to apply a similar algorithm for reproducible
-pseudo-random number generation in multithreaded GeantV simulations.
-<!--l. 108--><p class="noindent" >
+<!--l. 108--><p class="indent" >   Therefore it is worth to apply a similar algorithm for reproducible
+pseudo-random number generation in GeantV.
+<!--l. 110--><p class="noindent" >
    <h3 class="likesectionHead"><a 
  id="x1-8000"></a> Acknowledgements </h3>
-<!--l. 110--><p class="noindent" >Development sponsored by Google in Google Summer of Code 2017 under
+<!--l. 112--><p class="noindent" >Development sponsored by Google in Google Summer of Code 2017 under
 supervision of John Apostolakis and Sandro Wenzel.
-<!--l. 112--><p class="noindent" >
+<!--l. 114--><p class="noindent" >
    <h3 class="likesectionHead"><a 
  id="x1-9000"></a> Links </h3>
-<!--l. 114--><p class="noindent" ><a 
+<!--l. 116--><p class="noindent" ><a 
 href="https://bitbucket.org/sd57/pedigree-git" >Standalone prototype</a><br 
 class="newline" /><a 
 href="https://bitbucket.org/sd57/geant4/branch/pedigree" >Geant4-based prototype</a><br 
 class="newline" /><a 
-href="https://sd57.github.io/g4dprng/gsocPreprint.html" >Preprint</a> about the Geant4-based prototype<br 
+href="https://sd57.github.io/g4dprng/gsocPreprint.html" >Preprint</a> about the Geant4-based prototype (in progress)<br 
 class="newline" /><a 
 href="https://sd57.github.io/g4dprng/gsoc-proposal-Savin.html" >GSoC proposal</a><br 
 class="newline" />
